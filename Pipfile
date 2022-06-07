@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pandas = "*"
+dash = "*"
+plotly = "*"
+gunicorn = "*"
+dash-bootstrap-components = "*"
+dash-canvas = "*"
+scikit-image = "*"
+tensorflow = "*"
+
+[dev-packages]
+black = "*"
+pylint = "*"
+pipenv-to-requirements = "*"
+pre-commit = "*"
+
+[requires]
+python_version = "3.9"
+
+[pipenv]
+allow_prereleases = true
