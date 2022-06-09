@@ -6,13 +6,12 @@ import dash_bootstrap_components as dbc
 
 # Import the main app
 from app import app
-
-
 # Import here the Pages to add
 from pages import about_us, contact_us, home
 from pages.eda import cancer_data_exploration
 from pages.predict import breast_cancer_prediction 
 
+server = app.server
 
 navbar = dbc.NavbarSimple(
     children=[
