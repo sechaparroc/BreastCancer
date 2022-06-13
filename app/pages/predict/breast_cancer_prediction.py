@@ -19,7 +19,7 @@ from app import app
 figures = dict()
 path = Path(os.path.dirname(os.path.realpath(__file__)))
 path = path.parent.parent.absolute()
-path = os.path.join(path, 'assets', 'imgs', '14155.png')
+path = os.path.join(path, 'assets', 'imgs', '3.png')
 
 img = io.imread(path)
 
@@ -137,18 +137,7 @@ def on_new_annotation(relayout_data, figure):
     if "shapes" in relayout_data:
         last = relayout_data["shapes"][-1]
         relayout_data["shapes"] = [last]
-        
-        """
-        No documentation to do this efficiently
-        #fig = go.Figure(figure)
-        fig = figures['main-canvas']
-        #define how to update properly
-        
-        fig['layout'] = relayout_data
-        fig.update_layout(dragmode="drawrect", 
-                          newshape=dict(opacity=0.5, fillcolor="#E222AD"),
-                          )
-        """
+
         fig = go.Figure(figure)
         fig.update_shapes(last)        
         
@@ -156,8 +145,10 @@ def on_new_annotation(relayout_data, figure):
         # shape coordinates are floats, we need to convert to ints for slicing
         x0, y0 = int(last["x0"]), int(last["y0"])
         x1, y1 = int(last["x1"]), int(last["y1"])
-        roi_img = img[y0:y1, x0:x1]
-        
-        return json.dumps(relayout_data, indent=2), fig, px.imshow(roi_img), px.imshow(roi_img)
+        try:
+            roi_img = img[y0:y1, x0:x1]
+            return json.dumps(relayout_data, indent=2), fig, px.imshow(roi_img), px.imshow(roi_img)
+        except:
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update    
     else:
         return dash.no_update, dash.no_update, dash.no_update, dash.no_update
