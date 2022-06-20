@@ -13,8 +13,10 @@ import plotly.io as pio
 import os
 from pathlib import Path
 
-#from . import geo_plots
 from components.bars.deaths_barplot import BarPlot
+from components.geo.deaths_geo import GeoPlot
+
+
 
 dash.register_page(__name__, path="/data-exploration")
 
@@ -113,8 +115,13 @@ def obtainCategories(data, category):
     categories.sort()
     return categories
 
+
+#load all the data of interest
 data, cancer_data = loadMainData()
 geojson = loadGeojson()
+population_data = loadPopulationData()
+
+
 cancer_categories = obtainCategories(cancer_data, 'Causa')
 sex_categories = obtainCategories(cancer_data, 'Sexo')
 cancer_columns = ['Causa', 'Sexo', 'Edad', 'Educacion', 'Etnia', 'Area_Residencia', 'Seguridad_social',
@@ -125,11 +132,7 @@ cancer_columns = ['Causa', 'Sexo', 'Edad', 'Educacion', 'Etnia', 'Area_Residenci
 
 # Define instance of the components to use
 barplot_component : BarPlot = BarPlot(cancer_data, 'cancer_bars')
-barplot_component2 : BarPlot = BarPlot(cancer_data, 'cancer_bars')
-
-
-#bar_content = bar_plots.barplottab()
-#geo_content = geo_plots.geoplottab()
+geoplot_component : GeoPlot = GeoPlot(cancer_data, population_data, geojson, 'cancer_geo')
 
 layout = dbc.Container(
     [
@@ -138,7 +141,7 @@ layout = dbc.Container(
         dbc.Tabs(
             [
                 dbc.Tab(barplot_component.display(), label="Bar plot", tab_id="bar"),
-                dbc.Tab(barplot_component2.display(), label="Geo plot", tab_id="geo"),
+                dbc.Tab(geoplot_component.display(), label="Geo plot", tab_id="geo"),
             ],
             id="tabs",
             active_tab="bar",
@@ -161,18 +164,17 @@ def update_barplot_var_1_types(variable):
     ]
     return [], options
 
-# @callback(
-#     Output("barplot-var-2-types", "value"),
-#     Output("barplot-var-2-types", "options"),
-#     Input("barplot-var-2", "value")
-# )
-# def update_barplot_var_2_types(variable):
-#     variable = "Sexo" if variable not in cancer_columns else variable
-#     options=[
-#         {"label": col[:15], "value": col} for col in obtainCategories(cancer_data, variable)
-#     ]
-#     return [], options
-# 
+@callback(
+    Output(barplot_component.second_variable_categories_id(), "value"),
+    Output(barplot_component.second_variable_categories_id(), "options"),
+    Input(barplot_component.second_variable_id(), "value")
+)
+def update_barplot_var_2_types(variable):
+    variable = "Sexo" if variable not in cancer_columns else variable
+    options=[
+        {"label": col[:15], "value": col} for col in obtainCategories(cancer_data, variable)
+    ]
+    return [], options
 
 
 @callback(
@@ -193,23 +195,24 @@ def render_barplot_content(var1, var1_types, var2, var2_types):
 
 # GEO PLOT CALLBACKS
 
-# @callback(
-#     Output("geoplot-var-types", "value"),
-#     Output("geoplot-var-types", "options"),
-#     Input("geoplot-var", "value")
-# )
-# def update_barplot_var_1_types(variable):
-#     variable = "Causa" if variable not in cancer_columns else variable
-#     options=[
-#         {"label": col[:15], "value": col} for col in obtainCategories(cancer_data, variable)
-#     ]
-#     return [], options
-# 
-# @callback(
-#     Output("geo-plot", "figure"),
-#     Input("geoplot-var", "value"),
-#     Input("geoplot-var-types", "value"),
-# )
-# def render_geoplot_content(var, var_types):
-#     return geo_plots.geoplotfigure(var, var_types)
-# 
+@callback(
+    Output(geoplot_component.figure_id(), "figure"),
+    Input(geoplot_component.variable_id("Causa"), "value"),
+    Input(geoplot_component.variable_id("Sexo"), "value"),
+    Input(geoplot_component.variable_id("Edad"), "value"),
+    Input(geoplot_component.variable_id("Educacion"), "value"),
+    Input(geoplot_component.variable_id("Etnia"), "value"),
+    Input(geoplot_component.variable_id("Area_Residencia"), "value"),
+    Input(geoplot_component.variable_id("Seguridad_social"), "value"),
+)
+def render_geoplot_content(
+    Causa, Sexo, Edad, Educacion, Etnia, Area_Residencia, Seguridad_social    
+):
+    geoplot_component.filter_by_column["Causa"] = Causa
+    geoplot_component.filter_by_column["Sexo"] = Sexo
+    geoplot_component.filter_by_column["Edad"] = Edad
+    geoplot_component.filter_by_column["Educacion"] = Educacion
+    geoplot_component.filter_by_column["Etnia"] = Etnia
+    geoplot_component.filter_by_column["Area_Residencia"] = Area_Residencia
+    geoplot_component.filter_by_column["Seguridad_social"] = Seguridad_social
+    return geoplot_component.update_figure()

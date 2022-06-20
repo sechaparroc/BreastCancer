@@ -56,7 +56,7 @@ class BarPlot:
 
     def obtainCategories(self, category):
         #just keep the first 15 
-        categories = self.data[category].unique()
+        categories = self.data[category].dropna().unique()
         categories.sort()
         return categories
 
