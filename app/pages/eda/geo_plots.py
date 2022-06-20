@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 
 from . import cancer_data_exploration as eda
-from app import app
 
 def geoplotfigure(var = 'Causa', types = []):
     if var == None or var not in eda.cancer_columns:

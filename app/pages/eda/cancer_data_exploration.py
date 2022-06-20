@@ -3,7 +3,7 @@ import dash
 import dash_bootstrap_components as dbc
 import numpy as np
 import plotly.graph_objs as go
-from dash import Input, Output, dcc, html
+from dash import Input, Output, dcc, html, callback
 
 import pandas as pd
 import json
@@ -13,10 +13,10 @@ import plotly.io as pio
 import os
 from pathlib import Path
 
-from app import app
+#from . import geo_plots
+from components.bars.deaths_barplot import BarPlot
 
-from . import bar_plots
-from . import geo_plots
+dash.register_page(__name__, path="/data-exploration")
 
 #Define global actions - TODO: Check potential pitfalls with global vars!
 #See - https://dash.plotly.com/sharing-data-between-callbacks#why-global-variables-will-break-your-app
@@ -122,8 +122,14 @@ cancer_columns = ['Causa', 'Sexo', 'Edad', 'Educacion', 'Etnia', 'Area_Residenci
 
 
 #tabs
-bar_content = bar_plots.barplottab()
-geo_content = geo_plots.geoplottab()
+
+# Define instance of the components to use
+barplot_component : BarPlot = BarPlot(cancer_data, 'cancer_bars')
+barplot_component2 : BarPlot = BarPlot(cancer_data, 'cancer_bars')
+
+
+#bar_content = bar_plots.barplottab()
+#geo_content = geo_plots.geoplottab()
 
 layout = dbc.Container(
     [
@@ -131,8 +137,8 @@ layout = dbc.Container(
         html.Hr(),
         dbc.Tabs(
             [
-                dbc.Tab(bar_content, label="Bar plot", tab_id="bar"),
-                dbc.Tab(geo_content, label="Geo plot", tab_id="geo"),
+                dbc.Tab(barplot_component.display(), label="Bar plot", tab_id="bar"),
+                dbc.Tab(barplot_component2.display(), label="Geo plot", tab_id="geo"),
             ],
             id="tabs",
             active_tab="bar",
@@ -143,10 +149,10 @@ layout = dbc.Container(
 
 # BAR PLOT CALLBACKS
 
-@app.callback(
-    Output("barplot-var-1-types", "value"),
-    Output("barplot-var-1-types", "options"),
-    Input("barplot-var-1", "value")
+@callback(
+    Output(barplot_component.first_variable_categories_id(), "value"),
+    Output(barplot_component.first_variable_categories_id(), "options"),
+    Input(barplot_component.first_variable_id(), "value")
 )
 def update_barplot_var_1_types(variable):
     variable = "Causa" if variable not in cancer_columns else variable
@@ -155,50 +161,55 @@ def update_barplot_var_1_types(variable):
     ]
     return [], options
 
-@app.callback(
-    Output("barplot-var-2-types", "value"),
-    Output("barplot-var-2-types", "options"),
-    Input("barplot-var-2", "value")
-)
-def update_barplot_var_2_types(variable):
-    variable = "Sexo" if variable not in cancer_columns else variable
-    options=[
-        {"label": col[:15], "value": col} for col in obtainCategories(cancer_data, variable)
-    ]
-    return [], options
+# @callback(
+#     Output("barplot-var-2-types", "value"),
+#     Output("barplot-var-2-types", "options"),
+#     Input("barplot-var-2", "value")
+# )
+# def update_barplot_var_2_types(variable):
+#     variable = "Sexo" if variable not in cancer_columns else variable
+#     options=[
+#         {"label": col[:15], "value": col} for col in obtainCategories(cancer_data, variable)
+#     ]
+#     return [], options
+# 
 
 
-
-@app.callback(
-    Output("bar-plot", "figure"),
-    Input("barplot-var-1", "value"),
-    Input("barplot-var-1-types", "value"),
-    Input("barplot-var-2", "value"),
-    Input("barplot-var-2-types", "value"),
+@callback(
+    Output(barplot_component.figure_id(), "figure"),
+    Input(barplot_component.first_variable_id(), "value"),
+    Input(barplot_component.first_variable_categories_id(), "value"),
+    Input(barplot_component.second_variable_id(), "value"),
+    Input(barplot_component.second_variable_categories_id(), "value")
 )
 def render_barplot_content(var1, var1_types, var2, var2_types):
-    return bar_plots.barplotfigure(var1, var1_types, var2, var2_types)
+    #update filters
+    barplot_component.first_variable = var1
+    barplot_component.second_variable = var2
+    barplot_component.first_variable_categories = var1_types
+    barplot_component.second_variable_categories = var2_types
+    return barplot_component.update_figure()
 
 
 # GEO PLOT CALLBACKS
 
-@app.callback(
-    Output("geoplot-var-types", "value"),
-    Output("geoplot-var-types", "options"),
-    Input("geoplot-var", "value")
-)
-def update_barplot_var_1_types(variable):
-    variable = "Causa" if variable not in cancer_columns else variable
-    options=[
-        {"label": col[:15], "value": col} for col in obtainCategories(cancer_data, variable)
-    ]
-    return [], options
-
-@app.callback(
-    Output("geo-plot", "figure"),
-    Input("geoplot-var", "value"),
-    Input("geoplot-var-types", "value"),
-)
-def render_geoplot_content(var, var_types):
-    return geo_plots.geoplotfigure(var, var_types)
-
+# @callback(
+#     Output("geoplot-var-types", "value"),
+#     Output("geoplot-var-types", "options"),
+#     Input("geoplot-var", "value")
+# )
+# def update_barplot_var_1_types(variable):
+#     variable = "Causa" if variable not in cancer_columns else variable
+#     options=[
+#         {"label": col[:15], "value": col} for col in obtainCategories(cancer_data, variable)
+#     ]
+#     return [], options
+# 
+# @callback(
+#     Output("geo-plot", "figure"),
+#     Input("geoplot-var", "value"),
+#     Input("geoplot-var-types", "value"),
+# )
+# def render_geoplot_content(var, var_types):
+#     return geo_plots.geoplotfigure(var, var_types)
+# 
