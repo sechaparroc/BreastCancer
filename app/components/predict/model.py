@@ -147,10 +147,8 @@ class Model:
         jet_heatmap = keras.preprocessing.image.array_to_img(jet_heatmap)
         jet_heatmap = jet_heatmap.resize((img.shape[1], img.shape[0]))
         jet_heatmap = keras.preprocessing.image.img_to_array(jet_heatmap)
-        # Superimpose the heatmap on original image
-        superimposed_img = cv2.addWeighted(img, 1-alpha, jet_heatmap, alpha, 0) #jet_heatmap * alpha + img
         
-        return superimposed_img / 255.0, jet_heatmap / 255.0
+        return jet_heatmap / 255.0
 
 
                 
@@ -171,8 +169,12 @@ class Model:
                 if patch.shape[1] < PW or patch.shape[2] < PH:
                     continue
                 heatmap = self.make_gradcam_heatmap(patch, self.model, self.last_conv_layer, pred_index = 0)
-                out, heat = self.gradcam(patch[0], heatmap, alpha=0.3)
-                output_image[row:row+PH, col:col+PW, :] =  out
+                heat = self.gradcam(patch[0], heatmap, alpha=0.3)
+                output_image[row:row+PH, col:col+PW, :] =  patch[0]
                 heatmap_image[row:row+PH, col:col+PW, :] = heat
-        return output_image, heatmap_image
+        heatmap_image = cv2.GaussianBlur(heatmap_image,(5,5), 5)
+        # Superimpose the heatmap on original image
+        superimposed_img = cv2.addWeighted(output_image, 1-0.3, heatmap_image, 0.3, 0) #jet_heatmap * alpha + img
+
+        return superimposed_img, heatmap_image
 
