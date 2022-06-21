@@ -66,7 +66,7 @@ class GeoPlot:
             filtered_data = self.filter_column(filtered_data, column, categories)
         department_data = filtered_data.groupby(['COD_DPTO', 'Departamento'])['Numero_Registros'].sum().reset_index()    
         department_data = self.addPopulationInformation(department_data)
-        department_data['Tasa_muerte'] = department_data['Numero_Registros'] / department_data['Poblacion'] * 10000
+        department_data['Tasa_muerte'] = np.round(department_data['Numero_Registros'] / department_data['Poblacion'] * 10000, 4)
         return department_data
 
 
@@ -77,17 +77,29 @@ class GeoPlot:
         """
         #apply filter
         deparment_data = self.apply_filter()
-        fig = px.choropleth_mapbox(deparment_data,           #Data
-                locations='COD_DPTO',                     #Column containing the identifiers used in the GeoJSON file 
-                color='Tasa_muerte',                 #Column giving the color intensity of the region
-                geojson=self.geojson,                          #The GeoJSON file
+        fig = px.choropleth_mapbox(deparment_data,        
+                locations='COD_DPTO',                      
+                color='Tasa_muerte',                      
+                geojson=self.geojson,                     
                 featureidkey='properties.DPTO',
-                zoom=3.5,                                   #Zoom
-                mapbox_style="carto-positron",            #Mapbox style, for different maps you need a Mapbox account and a token
-                center={"lat": 4, "lon": -72},            #Center
-                color_continuous_scale="Viridis",         #Color Scheme
-                opacity=0.5,                              #Opacity of the map
+                zoom=3.5,                                 
+                mapbox_style="carto-positron",            
+                center={"lat": 4, "lon": -72},            
+                color_continuous_scale="jet",         
+                opacity=0.5,
+                custom_data = ["Departamento", "Numero_Registros", "Poblacion"]                               
                 )
+
+        fig.update_traces(
+            hovertemplate="<br>".join([
+                "Departamento=%{customdata[0]}",
+                "Tasa muerte=%{z}",
+                "Total muertes=%{customdata[1]}",
+                "Total poblacion=%{customdata[2]}",
+            ])
+        )
+
+        
         return fig
 
 
