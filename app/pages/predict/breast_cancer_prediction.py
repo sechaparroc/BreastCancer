@@ -1,6 +1,6 @@
 import dash
 import dash_bootstrap_components as dbc
-from dash import Input, State, Output, dcc, html, callback
+from dash import Input, State, Output, dcc, html, callback, ctx
 import dash
 from skimage import io
 import os
@@ -20,28 +20,35 @@ path = path.parent.parent.absolute()
 models_path = os.path.join(path, 'assets', 'models')
 images_path = os.path.join(path, 'assets', 'imgs')
 
-img = io.imread(os.path.join(images_path, '16.png'))
-blank_image = 165.0 * np.ones(img.shape).astype('float32')
+# Place here the images
+sample_images = [io.imread(os.path.join(images_path, f"sample_{i}.png")) for i in range(0,5)]
+blank_image = 165.0 * np.ones((500,500,3)).astype('float32')
 
-selector_component : Visualizer = Visualizer(img, 'Image', 'main-canvas')
+# Place here the models
+models = dict()
+models["Classical"] = Model("classical", os.path.join(models_path, 'classical_model.h5'), "conv2d_2")
+models["With regularization"] = Model("classical", os.path.join(models_path, 'classical_model.h5'), "conv2d_2")
+
+# Define prediction modes 
+prediction_modes = ['Tint patches', 'Grad-Cam Heatmap', 'Grad-Cam Tint']
+
+selector_component : Visualizer = Visualizer(sample_images[0], 'Image', 'main-canvas')
 prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'prediction-canvas', False)
-
-# Load prediction models
-classical_model = Model("classical", os.path.join(models_path, 'classical_model.h5'), "conv2d_2")
 
 
 def generate_controls():
     return dbc.Card(
         [
+            dcc.Store(id='local-data', data = {'model' : 'Classical', 'image' : 0}),
             html.Div(
                 [
                     dbc.Label("Choose Image"),
                     dcc.Dropdown(
-                        id="x-variable",
+                        id="image-select",
                         options=[
-                            {"label": col, "value": col} for col in ['a','b','c']
+                            {"label": f"Image {key}", "value": key} for key in range(0,len(sample_images))
                         ],
-                        value="sepal length (cm)",
+                        value=0,
                         className="dash-bootstrap"
                     ),
                 ]
@@ -50,21 +57,28 @@ def generate_controls():
                 [
                     dbc.Label("Choose model"),
                     dcc.Dropdown(
-                        id="y-variable",
+                        id="model-select",
                         options=[
-                            {"label": col, "value": col} for col in ['a','b','c']
+                            {"label": key, "value": key} for key in models
                         ],
-                        value="sepal width (cm)",
+                        value="Classical",
                         className="dash-bootstrap"
                     ),
                 ]
             ),
             html.Div(
                 [
-                    dbc.Button("Run selected model", color="primary", className="me-1", id ="run-button")
-                ],
-                style = { 'padding-top' : 20, 'padding-left' : 5}
-            ),            
+                    dbc.Label("Choose prediction mode"),
+                    dcc.Dropdown(
+                        id="prediction-mode",
+                        options=[
+                            {"label": key, "value": key} for key in prediction_modes
+                        ],
+                        value=prediction_modes[0],
+                        className="dash-bootstrap"
+                    ),
+                ]
+            ),
         ],
         body=True,
     )    
@@ -91,26 +105,73 @@ layout = html.Div(
 
 #Callbacks
 
-@callback(
-    Output(selector_component.figure_id(), "figure"),
-    Output(prediction_component.figure_id(), "figure"),
-    Input(selector_component.figure_id(), "relayoutData"),
-    prevent_initial_call=True,
-)
-def on_roi_selection(relayout_data):
+# Update main figure either if a Rect is drawn or if a new image is selected
+def update_main_figure_on_rect_draw(relayout_data):
     if "shapes" in relayout_data:
         updated_main_fig = selector_component.update_figure(relayout_data)
+        return updated_main_fig
+    else:
+        return dash.no_update
+
+def update_main_figure_on_choose_img(local_data):
+    updated_main_fig = selector_component.update_image(sample_images[local_data['image']])
+    return updated_main_fig
+
+@callback(
+    Output(selector_component.figure_id(), "figure"),
+    Input(selector_component.figure_id(), "relayoutData"),
+    Input('local-data', 'data'),
+    prevent_initial_call=True,
+)
+def update_main_figure(relayout_data, local_data):
+    triggered_id = ctx.triggered_id
+    if(triggered_id == selector_component.figure_id()):
+        return update_main_figure_on_rect_draw(relayout_data)
+    elif(triggered_id == "local-data"):
+        return update_main_figure_on_choose_img(local_data)
+    return dash.no_update
+
+
+
+
+@callback(
+    Output(prediction_component.figure_id(), "figure"),
+    Input(selector_component.figure_id(), "relayoutData"),
+    State('local-data', 'data'),
+    State('prediction-mode', 'value'),
+    prevent_initial_call=True,
+)
+def update_roi_figure_on_selection(relayout_data, local_data, prediction_mode):
+    if "shapes" in relayout_data:
         roi = selector_component.get_roi(relayout_data)
         # apply prediction
+        # modes: 'Tint patches', 'Grad-Cam Heatmap', 'Grad-Cam Tint'
         if roi is not None:
-            #roi = classical_model.tint_image(roi)
-            roi , _ = classical_model.tint_with_gradcam(roi)
+            if prediction_mode == 'Tint patches':
+                roi = models[local_data['model']].tint_image(roi)
+            elif prediction_mode == 'Grad-Cam Heatmap':
+                _ , roi = models[local_data['model']].tint_with_gradcam(roi)
+            elif prediction_mode == 'Grad-Cam Tint':
+                roi , _ = models[local_data['model']].tint_with_gradcam(roi)
+                
         else:
             roi = blank_image
         updated_pred_fig = prediction_component.update_image(roi) 
-        return updated_main_fig, updated_pred_fig
+        return updated_pred_fig
     else:
-        return dash.no_update, dash.no_update
+        return dash.no_update
 
-
+@callback(
+    Output('local-data', 'data'),
+    Input("image-select", "value"),
+    Input("model-select", "value"),
+    State('local-data', 'data'),
+    prevent_initial_call=True,
+)
+def on_selection(image, model, data):
+    if data is None:
+        data = dict()
+    data['model'] = model 
+    data['image'] = image 
+    return data
 
