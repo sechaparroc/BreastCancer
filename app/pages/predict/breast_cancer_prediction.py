@@ -30,7 +30,7 @@ models["Classical"] = Model("classical", os.path.join(models_path, 'classical_mo
 models["With regularization"] = Model("classical", os.path.join(models_path, 'classical_model.h5'), "conv2d_2")
 
 # Define prediction modes 
-prediction_modes = ['Tint patches', 'Grad-Cam Heatmap', 'Grad-Cam Tint']
+prediction_modes = ['Tint patches', 'Grad-Cam Tint']
 
 selector_component : Visualizer = Visualizer(sample_images[0], 'Image', 'main-canvas')
 prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'prediction-canvas', False)
@@ -39,7 +39,7 @@ prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'pred
 def generate_controls():
     return dbc.Card(
         [
-            dcc.Store(id='local-data', data = {'model' : 'Classical', 'image' : 0}),
+            dcc.Store(id='local-data', data = {'model' : 'Classical', 'image' : 0, 'show-annotations' : True}),
             html.Div(
                 [
                     dbc.Label("Choose Image"),
@@ -79,6 +79,20 @@ def generate_controls():
                     ),
                 ]
             ),
+            html.Div(
+                [
+                    dbc.Checklist(
+                        options=[
+                            {"label": "Show annotations", "value": "show-annotations"},
+                        ],
+                        value=[],
+                        id="switches-input",
+                        switch=True,
+                    ),
+                ],
+                style={"margin-left": "15px", "margin-top": "15px"}
+            )
+
         ],
         body=True,
     )    
@@ -143,20 +157,47 @@ def update_main_figure(relayout_data, local_data):
 )
 def update_roi_figure_on_selection(relayout_data, local_data, prediction_mode):
     if "shapes" in relayout_data:
+        annotations = []
         roi = selector_component.get_roi(relayout_data)
         # apply prediction
         # modes: 'Tint patches', 'Grad-Cam Heatmap', 'Grad-Cam Tint'
         if roi is not None:
             if prediction_mode == 'Tint patches':
-                roi = models[local_data['model']].tint_image(roi)
-            elif prediction_mode == 'Grad-Cam Heatmap':
-                _ , roi = models[local_data['model']].tint_with_gradcam(roi)
+                roi, annotations = models[local_data['model']].tint_image(roi)
             elif prediction_mode == 'Grad-Cam Tint':
-                roi , _ = models[local_data['model']].tint_with_gradcam(roi)
+                roi , _, annotations = models[local_data['model']].tint_with_gradcam(roi)
                 
         else:
             roi = blank_image
         updated_pred_fig = prediction_component.update_image(roi) 
+
+        if local_data['show-annotations']:
+            for annotation in annotations:
+                updated_pred_fig.add_annotation(
+                    x=annotation['x'], y=annotation['y'],
+                    text=annotation['text'],
+                        xref="x",
+                        yref="y",
+                        showarrow=True,
+                        font=dict(
+                            family="Courier New, monospace",
+                            size=16,
+                            color="#ffffff"
+                            ),
+                        align="center",
+                        arrowhead=2,
+                        arrowsize=1,
+                        arrowwidth=2,
+                        arrowcolor="#000000",
+                        ax=20,
+                        ay=-30,
+                        bordercolor="#ffffff",
+                        borderwidth=2,
+                        borderpad=4,
+                        bgcolor="#000000",
+                        opacity=0.8
+                    )
+
         return updated_pred_fig
     else:
         return dash.no_update
@@ -165,13 +206,14 @@ def update_roi_figure_on_selection(relayout_data, local_data, prediction_mode):
     Output('local-data', 'data'),
     Input("image-select", "value"),
     Input("model-select", "value"),
+    Input("switches-input", "value"),
     State('local-data', 'data'),
     prevent_initial_call=True,
 )
-def on_selection(image, model, data):
+def on_selection(image, model, switches, data):
     if data is None:
         data = dict()
     data['model'] = model 
     data['image'] = image 
+    data['show-annotations'] = 'show-annotations' in switches
     return data
-
