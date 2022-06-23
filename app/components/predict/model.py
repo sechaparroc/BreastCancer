@@ -94,6 +94,8 @@ class Model:
         PH = self.patch_dim[0]
         PW = self.patch_dim[1]
 
+        annotations = []
+
         mask = np.zeros(img_array[0].shape).astype('float32')
         for row in range(0,img_array[0].shape[0],PH):
             for col in range(0,img_array[0].shape[1],PW):
@@ -102,12 +104,26 @@ class Model:
                 if patch.shape[1] < PW or patch.shape[2] < PH:
                     continue
                 y_prob = self.model.predict(patch, verbose = 0)
-                mask[row:row+PH, col:col+PW, 0] =  1 * y_prob[0][0]
+                scaled = 1 * cm.jet(y_prob[0][0])
+                if y_prob[0][0] > 0.1:
+                    mask[row:row+PH, col:col+PW, 0] = scaled[0] 
+                    mask[row:row+PH, col:col+PW, 1] = scaled[1] 
+                    mask[row:row+PH, col:col+PW, 2] = scaled[2] 
+                else:
+                    mask[row:row+PH, col:col+PW, :] = patch[0]
+
+                # setup text
+                text = str(round(y_prob[0][0], 2))
+                textX =  col + PW//2
+                textY =  row + PH//2
+                annotations.append({'x' : textX, 'y' : textY, 'text' : text })
 
         mask = 255 * mask 
         mask = mask.astype(np.uint8)
         mask = cv2.GaussianBlur(mask,(9,9), 7)
-        return cv2.addWeighted(mask, 0.3, (img_array[0] * 255).astype(np.uint8), 0.7, 0) 
+
+        result = cv2.addWeighted(mask, 0.3, (img_array[0] * 255).astype(np.uint8), 0.7, 0) 
+        return result, annotations
 
     # use grad cam - code inspired by https://keras.io/examples/vision/grad_cam/
     def make_gradcam_heatmap(self, img_array, model, last_conv_layer_name, pred_index=None):
@@ -161,6 +177,7 @@ class Model:
         PW = self.patch_dim[1]
         output_image = np.zeros(image.shape)
         heatmap_image = np.zeros(image.shape)
+        annotations = []
 
         for row in range(0,image.shape[0],PH):
             for col in range(0,image.shape[1],PW):
@@ -172,9 +189,19 @@ class Model:
                 heat = self.gradcam(patch[0], heatmap, alpha=0.3)
                 output_image[row:row+PH, col:col+PW, :] =  patch[0]
                 heatmap_image[row:row+PH, col:col+PW, :] = heat
+
+                y_prob = self.model.predict(patch, verbose = 0)
+                # setup text
+                text = str(round(y_prob[0][0], 2))
+                textX =  col + PW//2
+                textY =  row + PH//2
+                annotations.append({'x' : textX, 'y' : textY, 'text' : text })
+
+
+
         heatmap_image = cv2.GaussianBlur(heatmap_image,(5,5), 5)
         # Superimpose the heatmap on original image
         superimposed_img = cv2.addWeighted(output_image, 1-0.3, heatmap_image, 0.3, 0) #jet_heatmap * alpha + img
 
-        return superimposed_img, heatmap_image
+        return superimposed_img, heatmap_image, annotations
 
