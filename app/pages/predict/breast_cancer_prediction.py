@@ -39,7 +39,7 @@ prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'pred
 def generate_controls():
     return dbc.Card(
         [
-            dcc.Store(id='local-data', data = {'model' : 'Classical', 'image' : 0, 'show-annotations' : True}),
+            dcc.Store(id='local-data', data = {'model' : 'Classical', 'image' : 0, 'show-annotations' : False}),
             html.Div(
                 [
                     dbc.Label("Choose Image"),
