@@ -2,32 +2,44 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, State, Output, dcc, html, callback, ctx
 import dash
-from skimage import io
+import sys
+import skimage
+from skimage import io as skio
+import io
+import requests
+from PIL import Image
+import pickle
+import codecs
+
+
+
 import os
 from pathlib import Path
 import numpy as np
 
 from components.image.visualizer import Visualizer
-from components.predict.model import Model
-
 
 dash.register_page(__name__, path="/cancer-prediction")
 
 
 #global references
+BREAST_CANCER_API = "http://127.0.0.1:8050"
+
 path = Path(os.path.dirname(os.path.realpath(__file__)))
 path = path.parent.parent.absolute()
-models_path = os.path.join(path, 'assets', 'models')
 images_path = os.path.join(path, 'assets', 'imgs')
 
-# Place here the images
-sample_images = [io.imread(os.path.join(images_path, f"sample_{i}.png")) for i in range(0,5)]
+# Place here the test images -- Loaded from a S3 Bucket
+sample_images = []
+for i in range(0,5):
+    r = requests.get(url=f'{BREAST_CANCER_API}/image_sample', params={ "num" : str(i)})
+    sample_images.append(skio.imread(io.BytesIO(r.content)))
+
+
 blank_image = 165.0 * np.ones((500,500,3)).astype('float32')
 
 # Place here the models
-models = dict()
-models["Classical"] = Model("classical", os.path.join(models_path, 'classical_model.h5'), "conv2d_2")
-models["With regularization"] = Model("classical", os.path.join(models_path, 'classical_model.h5'), "conv2d_2")
+models = ["classical", "with_regularization"]
 
 # Define prediction modes 
 prediction_modes = ['Tint patches', 'Grad-Cam Tint']
@@ -35,11 +47,10 @@ prediction_modes = ['Tint patches', 'Grad-Cam Tint']
 selector_component : Visualizer = Visualizer(sample_images[0], 'Image', 'main-canvas')
 prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'prediction-canvas', False)
 
-
 def generate_controls():
     return dbc.Card(
         [
-            dcc.Store(id='local-data', data = {'model' : 'Classical', 'image' : 0, 'show-annotations' : False}),
+            dcc.Store(id='local-data', data = {'model' : 'classical', 'image' : 0, 'show-annotations' : False}),
             html.Div(
                 [
                     dbc.Label("Choose Image"),
@@ -61,7 +72,7 @@ def generate_controls():
                         options=[
                             {"label": key, "value": key} for key in models
                         ],
-                        value="Classical",
+                        value="classical",
                         className="dash-bootstrap"
                     ),
                 ]
@@ -163,10 +174,34 @@ def update_roi_figure_on_selection(relayout_data, local_data, prediction_mode):
         # modes: 'Tint patches', 'Grad-Cam Heatmap', 'Grad-Cam Tint'
         if roi is not None:
             if prediction_mode == 'Tint patches':
-                roi, annotations = models[local_data['model']].tint_image(roi)
+                #use API to Tint the patchs
+                im = Image.fromarray(roi)
+                # save image to an in-memory bytes buffer
+                with io.BytesIO() as buf:
+                    im.save(buf, format='PNG')
+                    im_bytes = buf.getvalue()
+                response = requests.post(url=f'{BREAST_CANCER_API}/tint_patches', params={
+                    "model_name" : local_data['model']
+                }, files= {'roiImg' : im_bytes})
+
+                response_json = response.json() 
+                annotations = response_json["annotations"]
+                roi = pickle.loads(codecs.decode(response_json["roi"].encode('latin1'), "base64"))
+
             elif prediction_mode == 'Grad-Cam Tint':
-                roi , _, annotations = models[local_data['model']].tint_with_gradcam(roi)
-                
+                #use API to Tint the patchs
+                im = Image.fromarray(roi)
+                # save image to an in-memory bytes buffer
+                with io.BytesIO() as buf:
+                    im.save(buf, format='PNG')
+                    im_bytes = buf.getvalue()
+                response = requests.post(url=f'{BREAST_CANCER_API}/tint_gradcam', params={
+                    "model_name" : local_data['model']
+                }, files= {'roiImg' : im_bytes})
+
+                response_json = response.json() 
+                annotations = response_json["annotations"]
+                roi = pickle.loads(codecs.decode(response_json["roi"].encode('latin1'), "base64"))
         else:
             roi = blank_image
         updated_pred_fig = prediction_component.update_image(roi) 

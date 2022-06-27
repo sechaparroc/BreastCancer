@@ -179,6 +179,7 @@ class Model:
         heatmap_image = np.zeros(image.shape)
         annotations = []
 
+        print("Entra")
         for row in range(0,image.shape[0],PH):
             for col in range(0,image.shape[1],PW):
                 patch = img_array[:,row:row+PH, col:col+PW, :]
@@ -195,6 +196,7 @@ class Model:
                 text = str(round(y_prob[0][0], 2))
                 textX =  col + PW//2
                 textY =  row + PH//2
+                print({'x' : textX, 'y' : textY, 'text' : text })
                 annotations.append({'x' : textX, 'y' : textY, 'text' : text })
 
 
