@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+pandas
+numpy
+tensorflow
+keras
+python-multipart
+nest-asyncio
+scikit-learn
+requests
+Pillow
