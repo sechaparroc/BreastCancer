@@ -23,7 +23,7 @@ dash.register_page(__name__, path="/cancer-prediction")
 
 
 #global references
-BREAST_CANCER_API = "http://127.0.0.1:8050"
+BREAST_CANCER_API = "http://127.0.0.1:8000"
 
 path = Path(os.path.dirname(os.path.realpath(__file__)))
 path = path.parent.parent.absolute()

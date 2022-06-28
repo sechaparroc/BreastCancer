@@ -78,7 +78,6 @@ def tint_gradcam(model_name : str, roiImg: UploadFile):
     # must return the annotations and the tinted roi
     # save image to an in-memory bytes buffer
 
-    print(annotations)
     return {
         'roi' : encoded_roi,
         'annotations' : annotations
@@ -87,4 +86,4 @@ def tint_gradcam(model_name : str, roiImg: UploadFile):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app_cnn, port=8050,host='0.0.0.0')
+    uvicorn.run(app_cnn, port=8000,host='0.0.0.0')
