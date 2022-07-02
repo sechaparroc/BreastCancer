@@ -1,3 +1,4 @@
+from io import BytesIO as bt
 import dash
 import dash_bootstrap_components as dbc
 from dash import Input, State, Output, dcc, html, callback, ctx
@@ -10,9 +11,7 @@ import requests
 from PIL import Image
 import pickle
 import codecs
-
-
-
+from collections import deque
 import os
 from pathlib import Path
 import numpy as np
@@ -23,7 +22,7 @@ dash.register_page(__name__, path="/cancer-prediction")
 
 
 #global references
-BREAST_CANCER_API = "http://127.0.0.1:8000"
+BREAST_CANCER_API = "http://127.0.0.1:8050"
 
 path = Path(os.path.dirname(os.path.realpath(__file__)))
 path = path.parent.parent.absolute()
@@ -42,7 +41,8 @@ blank_image = 165.0 * np.ones((500,500,3)).astype('float32')
 models = ["classical", "with_regularization"]
 
 # Define prediction modes 
-prediction_modes = ['Tint patches', 'Grad-Cam Tint']
+prediction_modes = ['Tint patches', 'Grad-Cam']
+
 
 selector_component : Visualizer = Visualizer(sample_images[0], 'Image', 'main-canvas')
 prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'prediction-canvas', False)
@@ -50,7 +50,34 @@ prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'pred
 def generate_controls():
     return dbc.Card(
         [
-            dcc.Store(id='local-data', data = {'model' : 'classical', 'image' : 0, 'show-annotations' : False}),
+            dcc.Store(id='image-data', data = { 'data' : sample_images[0]}),
+            dcc.Store(id='local-data', data = {'model' : 'classical', 'image' : 0, 'show-annotations' : False,
+            }),
+            html.Div(
+                [
+                    dbc.Label("Filter by"),
+                    dcc.Dropdown(
+                        id="filter-by",
+                        options=[
+                            {"label": f"{key}", "value": key} for key in ['Patient Id', 'Proportion', 'Samples']
+                        ],
+                        value='Samples',
+                        className="dash-bootstrap"
+                    ),
+                ]
+            ),
+            html.Div(id="patient-id-div", children =
+                [
+                    dbc.Label("Patient Id"),
+                    dcc.Dropdown(
+                        id="patient-id",
+                        options=[
+                        ],
+                        value=None,
+                        className="dash-bootstrap"
+                    ),
+                ]
+            ),
             html.Div(
                 [
                     dbc.Label("Choose Image"),
@@ -79,7 +106,7 @@ def generate_controls():
             ),
             html.Div(
                 [
-                    dbc.Label("Choose prediction mode"),
+                    dbc.Label("Prediction mode"),
                     dcc.Dropdown(
                         id="prediction-mode",
                         options=[
@@ -131,30 +158,40 @@ layout = html.Div(
 #Callbacks
 
 # Update main figure either if a Rect is drawn or if a new image is selected
-def update_main_figure_on_rect_draw(relayout_data):
+def update_main_figure_on_rect_draw(relayout_data, figure):
     if "shapes" in relayout_data:
-        updated_main_fig = selector_component.update_figure(relayout_data)
+        updated_main_fig = selector_component.update_figure(relayout_data, figure)
         return updated_main_fig
     else:
         return dash.no_update
 
 def update_main_figure_on_choose_img(local_data):
-    updated_main_fig = selector_component.update_image(sample_images[local_data['image']])
-    return updated_main_fig
+    # load image dinamically
+
+    r = requests.get(url=f'{BREAST_CANCER_API}/image', params={
+        "path" : local_data['image']
+    })
+    img = skio.imread(io.BytesIO(r.content))
+    updated_main_fig = selector_component.update_image(img)
+    return updated_main_fig, img
 
 @callback(
     Output(selector_component.figure_id(), "figure"),
+    Output('image-data', 'data'),
     Input(selector_component.figure_id(), "relayoutData"),
     Input('local-data', 'data'),
+    State(selector_component.figure_id(), "figure"),
     prevent_initial_call=True,
 )
-def update_main_figure(relayout_data, local_data):
+def update_main_figure(relayout_data, local_data, figure):
     triggered_id = ctx.triggered_id
     if(triggered_id == selector_component.figure_id()):
-        return update_main_figure_on_rect_draw(relayout_data)
+        return update_main_figure_on_rect_draw(relayout_data, figure), dash.no_update
     elif(triggered_id == "local-data"):
-        return update_main_figure_on_choose_img(local_data)
-    return dash.no_update
+        updated_main_fig, img = update_main_figure_on_choose_img(local_data)
+        image_data = {'data' : img}
+        return updated_main_fig, image_data
+    return dash.no_update, dash.no_update
 
 
 
@@ -163,15 +200,18 @@ def update_main_figure(relayout_data, local_data):
     Output(prediction_component.figure_id(), "figure"),
     Input(selector_component.figure_id(), "relayoutData"),
     State('local-data', 'data'),
+    State('image-data', 'data'),
     State('prediction-mode', 'value'),
     prevent_initial_call=True,
 )
-def update_roi_figure_on_selection(relayout_data, local_data, prediction_mode):
+def update_roi_figure_on_selection(relayout_data, local_data, image_data, prediction_mode):
     if "shapes" in relayout_data:
         annotations = []
-        roi = selector_component.get_roi(relayout_data)
+        arr = np.array(image_data['data']).astype('uint8')
+
+        roi = selector_component.get_roi(relayout_data, arr)
         # apply prediction
-        # modes: 'Tint patches', 'Grad-Cam Heatmap', 'Grad-Cam Tint'
+        # modes: 'Tint patches', 'Grad-Cam Heatmap', 'Grad-Cam'
         if roi is not None:
             if prediction_mode == 'Tint patches':
                 #use API to Tint the patchs
@@ -188,7 +228,7 @@ def update_roi_figure_on_selection(relayout_data, local_data, prediction_mode):
                 annotations = response_json["annotations"]
                 roi = pickle.loads(codecs.decode(response_json["roi"].encode('latin1'), "base64"))
 
-            elif prediction_mode == 'Grad-Cam Tint':
+            elif prediction_mode == 'Grad-Cam':
                 #use API to Tint the patchs
                 im = Image.fromarray(roi)
                 # save image to an in-memory bytes buffer
@@ -252,3 +292,51 @@ def on_selection(image, model, switches, data):
     data['image'] = image 
     data['show-annotations'] = 'show-annotations' in switches
     return data
+
+@callback(
+   Output(component_id='patient-id-div', component_property='style'),
+   Output(component_id='patient-id', component_property='options'),
+   [Input(component_id='filter-by', component_property='value')])
+def show_hide_dropdowns(value):
+    if value == 'Patient Id':
+        #get all available patients
+        response = requests.get(url=f'{BREAST_CANCER_API}/patient_ids')
+        return {'display': 'block'}, [{"label": i, "value": i} for i in response.json()]
+    else:
+        return {'display': 'none'}, dash.no_update
+
+
+@callback(
+   Output(component_id='patient-id', component_property='value'),
+   [Input(component_id='patient-id', component_property='options')],
+   prevent_initial_call=True,
+   )
+def show_hide_dropdowns(options):
+    if options is None or len(options) == 0:
+        return None
+    return options[0]['value']
+
+@callback(
+   Output(component_id='image-select', component_property='value'),
+   [Input(component_id='image-select', component_property='options')],
+   prevent_initial_call=True,
+   )
+def show_hide_dropdowns(options):
+    if options is None or len(options) == 0:
+        return None
+    return options[0]['value']
+
+
+@callback(
+   Output(component_id='image-select', component_property='options'),
+   [Input(component_id='patient-id', component_property='value')],
+   prevent_initial_call=True,
+   )
+def show_patient_images(value):
+    #get all available patients
+    response = requests.get(url=f'{BREAST_CANCER_API}/obtain_patient_images', params={ "patient_id" : value, "dims" : 500})
+    list_response = response.json()
+    list_response = list_response[3:] + list_response[0:3]
+    options = [{"label": i, "value": path} for i, path in enumerate(list_response)]
+    return options
+

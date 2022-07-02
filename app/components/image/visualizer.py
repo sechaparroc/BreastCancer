@@ -27,8 +27,7 @@ class Visualizer():
 
     def update_image(self, image):
         # Generate the initial Figure
-        self.image = image
-        self.figure = px.imshow(self.image)
+        self.figure = px.imshow(image)
         self.figure.update_layout(dragmode="drawrect" if self.interactive else None, 
                         #newshape=dict(opacity=0.45, fillcolor="#94e3b6"),
                         margin=dict(l=5, r=5, b=5, t=5),
@@ -55,18 +54,18 @@ class Visualizer():
         return self.figure
 
 
-    def update_figure(self, relayout_data):
+    def update_figure(self, relayout_data, figure):
         if "shapes" in relayout_data:
             # keep only the last ROI
             last = relayout_data["shapes"][-1]
             relayout_data["shapes"] = [last]
-            self.figure = go.Figure(self.figure)
-            self.figure.update_shapes(last)     
-            return self.figure
+            fig = go.Figure(figure)
+            fig.update_shapes(last)     
+            return fig
         else:
-            return self.figure
+            return figure
 
-    def get_roi(self, relayout_data):
+    def get_roi(self, relayout_data, image_data):
         if not self.interactive:
             return None
 
@@ -83,7 +82,7 @@ class Visualizer():
             y0, y1 = min(y0,y1), max(y0,y1)
 
             try:
-                roi_img = self.image[y0:y1, x0:x1]
+                roi_img = image_data[y0:y1, x0:x1]
                 return roi_img
             except:
                 return None
