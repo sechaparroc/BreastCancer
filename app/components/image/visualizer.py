@@ -100,4 +100,5 @@ class Visualizer():
                         className="w-100", 
                         figure=self.figure, 
                         config=self.config,
-                        style={ "width": "100%"})]
+                        style={ "width": "100%"}),
+                ]
