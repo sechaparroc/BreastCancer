@@ -52,7 +52,7 @@ storage_data = {'model' : 'classical', 'image' : 0, 'show-annotations' : False}
 storage_mode = {'mode' : 'Samples'}
 
 
-selector_component : Visualizer = Visualizer( blank_image, 'Image', 'main-canvas')
+selector_component : Visualizer = Visualizer( request_image_sample(0), 'Image', 'main-canvas')
 prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'prediction-canvas', False)
 
 def patient_controls():
@@ -150,9 +150,9 @@ def generate_controls():
                     ),
                 ]
             ),            
-            html.Div( id = "patient-controls", children = patient_controls()),
+            html.Div( id = "patient-controls", children = patient_controls(), style = {'display': 'none'}),
             html.Div( id = "sample-controls", children = sample_controls()),
-            html.Div( id = "proportion-controls", children = proportion_controls()),
+            html.Div( id = "proportion-controls", children = proportion_controls(), style = {'display': 'none'}),
             html.Div(
                 [
                     dbc.Label("Choose model"),
@@ -225,7 +225,7 @@ layout = html.Div(
                         dbc.Col([], md=2),
                         dbc.Col([], md=5),
                         dbc.Col([
-                            html.H5(["Region covered with cancer: ", html.H5("", id="proportion-label", style = {'display': 'inline-block'})]),
+                            html.H5(["Region covered with cancer: ", html.H5("-", id="proportion-label", style = {'display': 'inline-block'})]),
                         ], md=5, style={ "textAlign": "center", 'display': 'inline-block'}),
                     ]),
 
@@ -358,7 +358,6 @@ def update_roi_figure_on_selection(relayout_data, local_data, image_data, predic
         total_patches = 0
         patches_with_cancer = 0
         for annotation in annotations:
-            print(annotation)
             num = float(annotation['text'])
             if num > 0.5:
                 patches_with_cancer += 1
@@ -395,6 +394,7 @@ def on_selection(image_path, model, switches, data):
    Output(component_id='proportion-controls', component_property='style'),
    Output(component_id='proportion-number', component_property='value'),
    [Input(component_id='filter-by', component_property='value')],
+   
    )
 def upload_after_filter_by(value):
     if value == 'Patient Id':
