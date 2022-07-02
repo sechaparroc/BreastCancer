@@ -6,6 +6,50 @@ from tensorflow.keras import models
 import requests
 import io
 from starlette.responses import StreamingResponse
+import boto3
+
+def is_image_of_patient(patient_id:int, key:str):
+    """Verify if the path of a given image corresponds to the patient ID 
+    Args:
+        patient_id (int) 
+        key (str): aws S3 path
+
+    Returns:
+        bool
+    """
+    print(key.split("/")[-2], patient_id)
+    return key.split("/")[-2] == patient_id
+
+def obtain_patient_images(patient_id:int, tile_size:int=500):
+    """Given a patient Id and the Tile size obtain the images related with the patient
+    Args:
+        patient_id (int)
+        tile_size (int, optional): Dimension of the Squared images, either 500 or 1000. Defaults to 500.
+
+    Returns:
+        list: paths of the patient images
+    """
+    images = []
+    s3 = boto3.resource('s3')
+    my_bucket = s3.Bucket('breast-cancer-data')
+
+    for object_summary in my_bucket.objects.filter(Prefix=f"Tiles/Tiles-{tile_size}/Tiles({tile_size}, {tile_size})/{patient_id}/"):
+        images.append(object_summary.key)
+    return images
+
+def obtain_patients_by_cancer_proportion(df, cancer_proportion:float, K:int = 5):
+    """Given a proportion and the Tile size obtain the K patiens with the nearest proportion
+    Args:
+        cancer_proportion (float)
+        tile_size (int, optional): Dimension of the Squared images, either 500 or 1000. Defaults to 500.
+
+    Returns:
+        list: patient ids 
+    """
+    filtered_patients = df.iloc[(df['cancer_proportion']-cancer_proportion).abs().argsort()[:K]].astype(int)
+    return [int(x) for x in filtered_patients['id'].values]
+
+
 
 def get_pil_image(image):
     """
@@ -61,3 +105,5 @@ def prepare_cnn_response(prediction):
     print(prediction)
 
     return {"Image Prediction": prediction[0][0]}
+
+
