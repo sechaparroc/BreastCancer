@@ -74,6 +74,19 @@ def get_patient_images(patient_id:int, dims:int):
     images_path = obtain_patient_images(patient_id, dims) 
     return images_path
 
+@app_cnn.get("/obtain_sample_images")
+def get_sample_images(): 
+    """Return the list of the sample images paths in a S3 bucket 
+    Args:
+        dims (int): Dimension of the square images (either 500 or 1000).
+            The lower the dimension the faster the app will run.
+    Returns:
+        list: path of the patient Images  
+    """
+    images_path = obtain_sample_images() 
+    return images_path
+
+
 @app_cnn.get("/patient_ids")
 def get_patient_ids(): 
     """

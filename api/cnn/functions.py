@@ -37,6 +37,24 @@ def obtain_patient_images(patient_id:int, tile_size:int=500):
         images.append(object_summary.key)
     return images
 
+def obtain_sample_images():
+    """Given a patient Id and the Tile size obtain the images related with the patient
+    Args:
+        patient_id (int)
+        tile_size (int, optional): Dimension of the Squared images, either 500 or 1000. Defaults to 500.
+
+    Returns:
+        list: paths of the patient images
+    """
+    images = []
+    s3 = boto3.resource('s3')
+    my_bucket = s3.Bucket('breast-cancer-data')
+
+    for object_summary in my_bucket.objects.filter(Prefix=f"imgs/"):
+        images.append(object_summary.key)
+    return images
+
+
 def obtain_patients_by_cancer_proportion(df, cancer_proportion:float, K:int = 5):
     """Given a proportion and the Tile size obtain the K patiens with the nearest proportion
     Args:
