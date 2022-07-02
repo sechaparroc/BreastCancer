@@ -233,7 +233,7 @@ layout = html.Div(
             ]
         )
     ],
-    style={"height": "100vh"},
+    style={"height": "100vh", "backgroundColor":"#E7F2F3"}
 )
 
 #Callbacks
@@ -288,6 +288,9 @@ def update_main_figure(relayout_data, local_data, figure):
 )
 def update_roi_figure_on_selection(relayout_data, local_data, image_data, prediction_mode):
     if "shapes" in relayout_data:
+        if 'data' not in image_data:
+            return dash.no_update, dash.no_update, dash.no_update
+
         annotations = []
         arr = np.array(image_data['data']).astype('uint8')
 
