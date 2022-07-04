@@ -157,13 +157,13 @@ layout = dbc.Container(
         html.Hr(),
         dbc.Tabs(
             [
-                dbc.Tab(barplot_component.display(), label="Bar plot", tab_id="bar"),
-                dbc.Tab(geoplot_component.display(), label="Geo plot", tab_id="geo"),
+                dbc.Tab(barplot_component.display(), label="Bar plot", tab_id="bar", label_style={"fontWeight": "bold"}),
+                dbc.Tab(geoplot_component.display(), label="Geo plot", tab_id="geo", label_style={"fontWeight": "bold"}),
             ],
             id="tabs",
             active_tab="bar",
         ),
-    ], fluid=True,style={"backgroundColor":"#E7F2F3"}
+    ], fluid=True,style={"backgroundColor":"#E7F2F3", "fontSize":20}
 )
 
 

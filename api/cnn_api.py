@@ -165,3 +165,4 @@ def tint_gradcam(model_name : str, roiImg: UploadFile):
 
 if __name__ == "__main__":
     uvicorn.run(app_cnn, port=8050,host='0.0.0.0')
+    #uvicorn.run(app_cnn)
