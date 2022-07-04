@@ -132,5 +132,5 @@ layout =dbc.Container(
             ]
             ),
         ],
-        fluid=True, style={"height": "180vh", "backgroundColor":"#E7F2F3"}
+        fluid=True, style={"backgroundColor":"#E7F2F3"}
 ),

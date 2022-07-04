@@ -7,7 +7,8 @@ h1{
 
 .dbc {
     background-color: white; /* Color de fondo contenedor principal */
-    color: black; /* Color de letra contenedor principal */
+    color: #073642;
+    font-size: 20; /* Color de letra contenedor principal */
 }
 
 .card-title, .card-text {

@@ -86,7 +86,7 @@ def proportion_controls():
             html.Div(
                 [
                     dbc.Label("Cancer Proportion"),
-                    dbc.Input(id='proportion-number', type="number", min=0, max=1, step=0.1, value=0.5),                    
+                    dbc.Input(id='proportion-number', type="number", min=0, max=1, step=0.1, value=0.5, style={"backgroundColor":"white"}),                    
                 ]
             ),
             html.Div(
@@ -187,7 +187,7 @@ def generate_controls():
                         ],
                         value=[],
                         id="switches-input",
-                        switch=True,
+                        switch=True, label_style={"fontWeight": "bold"}, input_style={"backgroundColor": "#073642", "borderColor":"white"},
                     ),
                 ],
                 style={"margin-left": "15px", "margin-top": "15px"}
@@ -201,17 +201,17 @@ layout = html.Div(
     [
         dbc.Col(
             [
-                html.Span([
-                    html.H1("Breast cancer image recognition", style = {'display': 'inline-block'}),
+                html.Div([
+                    html.H1("Breast cancer image recognition"),
                     html.Span(dcc.Loading( id="loading-id", type = "circle", 
                         children = [   
                             html.Span(id="loading-main-image", style = {'display': 'inline-block'}),
                             html.Span(id="loading-prediction-image", style = {'display': 'inline-block'}),
-                        ], style = {'display': 'inline-block'}
-                    ), style = {'display': 'inline-block', 'padding-left': 50}),
-                    ], 
+                        ], color = "#073642",
+                    ), style = {'padding-left': "50%"}),
+                    ], style = {"align":"center"} 
                 ),
-                html.Hr(),
+                #html.Hr(),
                 dbc.Row(
                     [
                         dbc.Col(generate_controls(), md=2),
@@ -233,7 +233,7 @@ layout = html.Div(
             ]
         )
     ],
-    style={"height": "100vh", "backgroundColor":"#E7F2F3"}
+    style={"backgroundColor":"#E7F2F3"}
 )
 
 #Callbacks
