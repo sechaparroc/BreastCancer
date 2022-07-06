@@ -3,6 +3,7 @@ import dash
 import dash_bootstrap_components as dbc
 from dash import Input, State, Output, dcc, html, callback, ctx
 import dash
+from dash import dcc
 import sys
 import skimage
 from skimage import io as skio
@@ -41,10 +42,10 @@ images_path = os.path.join(path, 'assets', 'imgs')
 blank_image = 165.0 * np.ones((500,500,3)).astype('float32')
 
 # Place here the models
-models = ["classical", "with_regularization"]
+models = ["classical"]
 
 # Define prediction modes 
-prediction_modes = ['Tint patches', 'Grad-Cam']
+prediction_modes = ['Grad-Cam', 'Tint patches']
 
 
 # initial local data configuration
@@ -52,6 +53,8 @@ storage_data = {'model' : 'classical', 'image' : 0, 'show-annotations' : False}
 storage_mode = {'mode' : 'Samples'}
 
 
+sample_response = requests.get(url=f'{BREAST_CANCER_API}/obtain_sample_images')
+sample_options = [{"label": i, "value": path} for i, path in enumerate(sample_response.json())]
 selector_component : Visualizer = Visualizer( request_image_sample(0), 'Image', 'main-canvas')
 prediction_component : Visualizer = Visualizer( blank_image, 'Prediction', 'prediction-canvas', False)
 
@@ -121,8 +124,8 @@ def sample_controls():
                     dbc.Label("Choose Image"),
                     dcc.Dropdown(
                         id="sample-image-select",
-                        options=[],
-                        value=0,
+                        options=sample_options,
+                        value=sample_options[0]['value'],
                         className="dash-bootstrap"
                     ),
                 ]
@@ -134,9 +137,9 @@ def sample_controls():
 def generate_controls():
     return dbc.Card(
         [
-            dcc.Store(id='image-data', data = dict()),
+            dcc.Store(id='image-data', data = {'data' : request_image_sample(0)}),
             dcc.Store(id='local-data', data = storage_data),
-            dcc.Store(id='local-image-path', data = dict()),
+            dcc.Store(id='local-image-path', data = {'path' : sample_options[0]['value']}),
             html.Div(
                 [
                     dbc.Label("Filter by"),
@@ -199,6 +202,33 @@ def generate_controls():
 
 layout = html.Div(
     [
+        dbc.Modal(
+            [
+                dbc.ModalHeader(dbc.ModalTitle("Prediction module")),
+                dbc.ModalBody(
+                    dbc.Row(
+                    dcc.Markdown(
+                        """
+                        Use the left pane to choose an Image to classify and set other options such as: 
+
+                        * How to filter the images. Either use sample images,filter by patient Id or by cancer proportion on the whole image.
+                        * Choose a CNN model to predict the probability of IDC on 50X50 patches.
+                        * Choose a visual prediction mode that produces a tintured image. Either use Grad-CAM or just tint the patches.                 
+                        * Enable annotations to show the probability of IDC at each image 50X50 patch.
+                        
+                        Drag and Drop with the mouse on the main image (left canvas) to generate a prediction (right canvas) of the choosen area. 
+
+                        Wait until a response is produced.
+                        """
+
+                    ))
+                ),
+            ],
+            centered=True,
+            id="modal-lg",
+            size="lg",
+            is_open=True,
+        ),        
         dbc.Col(
             [
                 html.Div([
@@ -367,7 +397,7 @@ def update_roi_figure_on_selection(relayout_data, local_data, image_data, predic
             total_patches += 1 
         prop = round(patches_with_cancer / total_patches, 4) * 100
 
-        return updated_pred_fig, "", f"{prop}%"
+        return updated_pred_fig, "", "{:.2f}%".format(prop)
     else:
         return dash.no_update, dash.no_update, dash.no_update
 
@@ -397,7 +427,7 @@ def on_selection(image_path, model, switches, data):
    Output(component_id='proportion-controls', component_property='style'),
    Output(component_id='proportion-number', component_property='value'),
    [Input(component_id='filter-by', component_property='value')],
-   
+   prevent_initial_call=True,      
    )
 def upload_after_filter_by(value):
     if value == 'Patient Id':

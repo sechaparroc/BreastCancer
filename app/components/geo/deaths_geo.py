@@ -62,11 +62,26 @@ class GeoPlot:
 
     def apply_filter(self):
         filtered_data = self.data
+        exist_femenino = False
+        exist_masculino = False
         for column, categories in self.filter_by_column.items():
             filtered_data = self.filter_column(filtered_data, column, categories)
+            if 'Femenino' in categories: exist_femenino = True
+            if 'Masculino' in categories: exist_masculino = True
+
+        pop_to_use = 'Poblacion'
+        if not exist_masculino and not exist_femenino:
+            pop_to_use = 'Poblacion'
+        elif exist_masculino and not exist_femenino:
+            pop_to_use = 'Poblacion Hombres'
+        elif not exist_masculino and exist_femenino:
+            pop_to_use = 'Poblacion Mujeres'
+        elif exist_masculino and exist_femenino:
+            pop_to_use = 'Poblacion'
+
         department_data = filtered_data.groupby(['COD_DPTO', 'Departamento'])['Numero_Registros'].sum().reset_index()    
         department_data = self.addPopulationInformation(department_data)
-        department_data['Tasa_muerte'] = np.round(department_data['Numero_Registros'] / department_data['Poblacion'] * 10000, 4)
+        department_data['Tasa_muerte'] = np.round(department_data['Numero_Registros'] / department_data[pop_to_use] * 10000, 4)
         return department_data
 
 
